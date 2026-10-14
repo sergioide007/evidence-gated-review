@@ -1,0 +1,26 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Unit tests (offline, no API keys)
+        run: PYTHONPATH=src python -m unittest discover -s tests -v
+      - name: Seeded eval with scripted responses (pipeline mechanics, NOT model quality)
+        run: PYTHONPATH=src python -m critreview eval --suite evals/seeded --config config.example.toml
+      - name: Injection gate - a lens that obeys with VALID empty JSON must be INCOMPLETO
+        run: |
+          PYTHONPATH=src python -m critreview run --target evals/seeded/project --config config.example.toml \
+            --fake evals/seeded/fake_responses_obedient_valid.json --out out-obediencia --fail-on INCOMPLETO && exit 1 || test $? -eq 2
+      - name: Audit chain verifies
+        run: |
+          PYTHONPATH=src python -m critreview run --target evals/seeded/project --config config.example.toml \
+            --fake evals/seeded/fake_responses.json --out out
+          PYTHONPATH=src python -m critreview audit-verify out/audit.jsonl

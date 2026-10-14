@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evidence-gated-review"
+version = "0.1.0"
+description = "Evidence-gated technical review workflow for architectures and multi-agent systems"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Sergio Perez Ruiz" }]
+dependencies = []          # stdlib only, on purpose
+
+[project.scripts]
+critreview = "critreview.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

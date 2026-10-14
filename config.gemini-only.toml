@@ -1,0 +1,39 @@
+[tiers.cheap]
+provider = "gemini"
+model = "gemini-3.1-flash-lite"
+max_output_tokens = 2000
+
+[tiers.mid]
+provider = "gemini"
+model = "gemini-3.5-flash-lite"
+max_output_tokens = 8000
+
+[tiers.strong]
+provider = "gemini"
+model = "gemini-3.1-flash-lite-preview"
+max_output_tokens = 3000
+
+[budget]
+max_calls = 30
+max_input_tokens = 300000
+max_output_tokens = 60000
+
+[escalation]
+always_escalate_areas = ["security", "ai_agents"]
+min_severity = "high"
+sample_rate_other = 0.15
+seed = 7
+
+[review]
+lenses = ["reliability", "security", "state_data", "ai_agents"]
+max_context_tokens = 20000
+max_parallel = 1
+report_language = "es"
+
+[resilience]
+breaker_failures = 4
+breaker_reset_s = 60.0
+max_retry_wait_s = 180.0       
+retry_attempts = 6             
+retry_base_delay_s = 10.0      
+max_limiter_wait_s = 300.0

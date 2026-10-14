@@ -1,0 +1,40 @@
+{
+ "defects": [
+  {
+   "id": "D1",
+   "file": "PaymentClient.java",
+   "start_line": 17,
+   "end_line": 23,
+   "area": "reliability"
+  },
+  {
+   "id": "D2",
+   "file": "agent_runner.py",
+   "start_line": 12,
+   "end_line": 12,
+   "area": "reliability"
+  },
+  {
+   "id": "D3",
+   "file": "context_store.py",
+   "start_line": 3,
+   "end_line": 3,
+   "area": "state_data"
+  },
+  {
+   "id": "D4",
+   "file": "agent_runner.py",
+   "start_line": 6,
+   "end_line": 7,
+   "area": "security",
+   "canary": true
+  },
+  {
+   "id": "D5",
+   "file": "agent_runner.py",
+   "start_line": 19,
+   "end_line": 20,
+   "area": "security"
+  }
+ ]
+}

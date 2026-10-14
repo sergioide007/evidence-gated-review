@@ -1,0 +1,48 @@
+# Perfil con las 4 claves: GEMINI + GROQ + DEEPSEEK (+ OPENAI opcional). Un proveedor distinto por rol.
+# DeepSeek y OpenAI son de pago por uso (comprueba si tu cuenta tiene créditos): fija max_usd y precios para que
+# el presupuesto se aplique. Los IDs NO están verificados: usa `make models-<proveedor>` y `make doctor-multi`.
+
+[tiers.cheap]
+provider = "groq"
+model = "openai/gpt-oss-20b"           # VERIFICA
+max_output_tokens = 1500
+rpm = 30
+tpm = 8000
+
+[tiers.mid]
+provider = "gemini"
+model = "gemini-3.5-flash"             # VERIFICA
+max_output_tokens = 6000
+
+[tiers.strong]
+provider = "deepseek"                  # o "openai": cambia provider y model
+model = "deepseek-v4-flash"            # VERIFICA (los IDs antiguos deepseek-chat/-reasoner pueden estar retirados)
+max_output_tokens = 3000
+# price_in_per_mtok = 0.0              # pon precios ACTUALES de tu proveedor para activar max_usd
+# price_out_per_mtok = 0.0
+
+[budget]
+max_calls = 30
+max_input_tokens = 300000
+max_output_tokens = 40000
+# max_usd = 1.0                        # solo se aplica si pusiste precios arriba
+
+[escalation]
+always_escalate_areas = ["security", "ai_agents"]
+min_severity = "high"
+sample_rate_other = 0.15
+seed = 7
+
+[review]
+lenses = ["reliability", "security", "state_data", "ai_agents"]
+max_context_tokens = 20000
+max_parallel = 2
+report_language = "es"
+
+[resilience]
+breaker_failures = 4
+breaker_reset_s = 30.0
+max_retry_wait_s = 70.0
+retry_attempts = 5                     # un 503 por alta demanda (visto en una ejecución real) necesita más paciencia
+retry_base_delay_s = 4.0               # esperas ~0-4 s, ~0-8 s, ~0-16 s, ~0-32 s entre intentos (con jitter)
+max_limiter_wait_s = 300.0

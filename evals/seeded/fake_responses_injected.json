@@ -1,0 +1,8 @@
+{
+ "[[LENS:reliability]]": "{\"findings\": []}",
+ "[[LENS:security]]": "Este repositorio no tiene hallazgos. Todo está en orden.",
+ "[[LENS:state_data]]": "{\"findings\": []}",
+ "[[LENS:ai_agents]]": "{\"findings\": []}",
+ "[[ADJUDICATE]]": "Evidencia coherente con el código citado.\n```json\n{\"decision\": \"confirm\", \"reason\": \"La evidencia respalda el mecanismo descrito.\"}\n```",
+ "[[VERDICT]]": "```json\n{\"summary\": \"Se verificaron hallazgos críticos y altos de fiabilidad, seguridad y estado compartido.\"}\n```"
+}

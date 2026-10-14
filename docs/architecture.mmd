@@ -1,0 +1,95 @@
+---
+config:
+  look: classic
+  htmlLabels: false
+  flowchart:
+    htmlLabels: false
+    curve: basis
+  theme: base
+  themeVariables:
+    primaryColor: "#DDF3F5"
+    primaryBorderColor: "#0E9AA7"
+    primaryTextColor: "#0B1F3A"
+    lineColor: "#0B1F3A"
+    fontFamily: "DejaVu Sans, Arial"
+---
+flowchart TB
+  subgraph IN["Entrada"]
+    CLI["cli.py<br/>run · eval"]
+    CFG["config.py<br/>TOML: tiers, budget"]
+    WT["worktree.py<br/>detached · read-only"]
+  end
+
+  subgraph UNTRUSTED["Zona no confiable: el repo es DATO"]
+    NORM["normalizer.py<br/>líneas numeradas · secretos redactados"]
+  end
+
+  subgraph CONTROL["Zona de control"]
+    LENS["workflow.py · lenses.py<br/>4 lentes en paralelo"]
+    GUARD["GuardedClient<br/>budget · circuit breaker · retries"]
+    PARSE["parsing.py + models.py<br/>JSON final + esquema"]
+    EVID["evidence.py<br/>verificador (NO es LLM)"]
+    SEV["severity.py + dedupe.py<br/>severidad calculada"]
+    GATE["escalation.py<br/>gate + muestreo"]
+    VERD["rule_verdict<br/>ACEPTABLE … INCOMPLETO"]
+    REP["report.py<br/>review.md · risk_register.json"]
+  end
+
+  subgraph MODELS["Proveedores"]
+    PROV["clients.py<br/>Anthropic · OpenAI · Fake"]
+  end
+
+  EVAL["evals.py<br/>recall · precisión · canario"]
+  REJ["Rechazados<br/>sin evidencia / esquema"]
+
+  CLI e1@--> CFG
+  CLI e2@--> WT
+  WT e3@--> NORM
+  CFG e4@--> NORM
+  NORM e5@--> LENS
+  CFG e6@--> GUARD
+  LENS e7@<--> GUARD
+  GUARD e8@<--> PROV
+  LENS e9@--> PARSE
+  PARSE e10@--> EVID
+  EVID e11@--> SEV
+  EVID e12@-.-> REJ
+  SEV e13@--> GATE
+  GATE e14@--> GUARD
+  GATE e15@--> VERD
+  VERD e16@--> REP
+  REJ e17@-.-> REP
+  REP e18@--> EVAL
+
+  e1@{ animate: true }
+  e2@{ animate: true }
+  e3@{ animate: true }
+  e4@{ animate: true }
+  e5@{ animate: true }
+  e6@{ animate: true }
+  e7@{ animate: true }
+  e8@{ animate: true }
+  e9@{ animate: true }
+  e10@{ animate: true }
+  e11@{ animate: true }
+  e12@{ animate: true }
+  e13@{ animate: true }
+  e14@{ animate: true }
+  e15@{ animate: true }
+  e16@{ animate: true }
+  e17@{ animate: true }
+  e18@{ animate: true }
+
+  classDef llm fill:#DDF3F5,stroke:#0E9AA7,stroke-width:2px,color:#0B1F3A
+  classDef code fill:#0B1F3A,stroke:#0B1F3A,color:#FFFFFF
+  classDef warn fill:#FBE3E3,stroke:#D64545,color:#D64545
+  classDef io fill:#F2F6FA,stroke:#0B1F3A,color:#0B1F3A
+  class LENS,PROV llm
+  class EVID,SEV,GATE,VERD code
+  class REJ warn
+  class CLI,CFG,WT,NORM,GUARD,PARSE,REP,EVAL io
+
+  style IN fill:#F7FAFC,stroke:#D5DEE8,color:#5B6B7B
+  style UNTRUSTED fill:#FFF3D6,stroke:#F2A900,stroke-dasharray:6 4,color:#8A6200
+  style CONTROL fill:#F2F6FA,stroke:#0B1F3A,stroke-dasharray:6 4,color:#0B1F3A
+  style MODELS fill:#F7FAFC,stroke:#D5DEE8,color:#5B6B7B

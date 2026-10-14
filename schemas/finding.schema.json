@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/critical-review-kit/finding.schema.json",
+  "title": "Finding",
+  "description": "One evidence-anchored finding emitted by a review lens. Severity is NOT an input: it is computed from impact_level x likelihood (+ detectability).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "area",
+    "title",
+    "evidence",
+    "failure_mechanism",
+    "trigger",
+    "impact_level",
+    "impact_description",
+    "likelihood",
+    "detectability",
+    "recommendation",
+    "tradeoff"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "area": {
+      "enum": [
+        "architecture",
+        "reliability",
+        "security",
+        "state_data",
+        "concurrency",
+        "scalability",
+        "observability",
+        "cost",
+        "ai_agents"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "start_line",
+          "end_line",
+          "quote"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "end_line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      }
+    },
+    "failure_mechanism": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trigger": {
+      "type": "string",
+      "minLength": 1
+    },
+    "impact_level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "impact_description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "likelihood": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "detectability": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "description": "low = hard to detect (worse)"
+    },
+    "recommendation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tradeoff": {
+      "type": "string",
+      "minLength": 1
+    },
+    "finding_type": {
+      "enum": [
+        "fact",
+        "inference"
+      ],
+      "default": "fact"
+    },
+    "proposed_severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    }
+  }
+}

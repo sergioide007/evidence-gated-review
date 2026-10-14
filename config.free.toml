@@ -1,0 +1,62 @@
+# Perfil para claves GRATUITAS: solo necesita GEMINI_API_KEY y GROQ_API_KEY.
+#
+#   cp .env.example .env      # pega tus claves
+#   make models-gemini        # lista los IDs REALES de tu cuenta; corrige los `model` de abajo si hace falta
+#   make doctor-free          # comprueba claves, modelos y límites SIN gastar tokens
+#
+# Los IDs de modelo cambian rápido y NO están verificados contra tu cuenta: `doctor` te dirá cuáles fallan.
+# Los límites gratuitos cambian sin aviso; la consola de cada proveedor manda sobre lo que pone aquí.
+#
+# Reparto de roles (y por qué):
+#   cheap  -> Groq:   reparar JSON mal formado (tarea mecánica; no decide qué se descarta)
+#   mid    -> Gemini: las 4 lentes; necesita el mayor contexto y es quien más tokens consume
+#   strong -> Groq (otra familia de modelo que `mid`, para reducir el sesgo de auto-preferencia)
+#
+# PRIVACIDAD: según los términos del plan gratuito de Gemini, Google puede usar los prompts para mejorar sus
+# productos. No revises con él código privado o propietario. Para código sensible usa un plan de pago.
+
+[tiers.cheap]
+provider = "groq"
+model = "openai/gpt-oss-20b"          # VERIFICA con: make models-groq
+max_output_tokens = 1500
+rpm = 30                               # ejemplo publicado para el plan gratuito de Groq (verifícalo en tu consola)
+tpm = 8000
+
+[tiers.mid]
+provider = "gemini"
+model = "gemini-3.5-flash"             # VERIFICA con: make models-gemini
+max_output_tokens = 6000               # los modelos con "thinking" gastan parte de esto en razonamiento oculto
+# rpm = 10                             # pon aquí los límites de TU cuenta (aistudio.google.com/rate-limit)
+# tpm = 250000
+
+[tiers.strong]
+provider = "groq"
+model = "openai/gpt-oss-120b"          # VERIFICA con: make models-groq
+max_output_tokens = 2000
+rpm = 30
+tpm = 8000
+
+[budget]
+max_calls = 30
+max_input_tokens = 300000
+max_output_tokens = 40000
+
+[escalation]
+always_escalate_areas = ["security", "ai_agents"]
+min_severity = "high"
+sample_rate_other = 0.15
+seed = 7
+
+[review]
+lenses = ["reliability", "security", "state_data", "ai_agents"]
+max_context_tokens = 20000             # sube/baja según tu repo; `doctor --target` te avisa si no cabe
+max_parallel = 2                       # los planes gratuitos limitan por minuto: menos hilos, menos 429
+report_language = "es"
+
+[resilience]
+breaker_failures = 4
+breaker_reset_s = 30.0
+max_retry_wait_s = 70.0
+retry_attempts = 5                     # un 503 por alta demanda (visto en una ejecución real) necesita más paciencia
+retry_base_delay_s = 4.0               # esperas ~0-4 s, ~0-8 s, ~0-16 s, ~0-32 s entre intentos (con jitter)                # respeta Retry-After hasta 70 s (las ventanas de Groq son de 1 min)
+max_limiter_wait_s = 300.0             # espera total máxima por la ventana de tokens/minuto antes de rendirse

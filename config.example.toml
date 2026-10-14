@@ -1,0 +1,49 @@
+# Model IDs and prices live ONLY here. Verify current model IDs and list prices with your provider before use.
+# Tiers are ROLES, not brands:
+#   cheap  -> mechanical work (repair malformed JSON). NEVER decides what is dropped.
+#   mid    -> the review lenses (fan-out).
+#   strong -> adjudication of verified high-risk findings + executive summary.
+# Tip: use a different provider/family for `strong` than for `mid` to reduce self-preference bias.
+
+[tiers.cheap]
+provider = "anthropic"
+model = "claude-haiku-5-5"
+max_output_tokens = 2000
+
+[tiers.mid]
+provider = "anthropic"
+model = "claude-sonnet-5-5"
+max_output_tokens = 6000
+
+[tiers.strong]
+provider = "anthropic"          # or "openai" (set `model` to the model ID you have access to)
+model = "claude-opus-5-5"
+max_output_tokens = 2000
+# price_in_per_mtok = 0.0       # fill with current list prices to enable max_usd enforcement
+# price_out_per_mtok = 0.0
+
+[budget]
+max_calls = 40
+max_input_tokens = 400000
+max_output_tokens = 60000
+# max_usd = 5.0                 # only enforced when the tier prices above are set
+
+[escalation]
+always_escalate_areas = ["security", "ai_agents"]
+min_severity = "high"
+sample_rate_other = 0.15        # random audit of lower-severity findings, to measure what the cheap path misses
+seed = 7
+
+[review]
+lenses = ["reliability", "security", "state_data", "ai_agents"]
+max_context_tokens = 120000
+report_language = "es"
+# Escanea el código en busca de frases de inyección y exige que algún hallazgo VERIFICADO las reporte.
+# Si una señal nadie la reportó, la cobertura es INCOMPLETA (una lente pudo obedecerla con un JSON vacío válido).
+# Es una heurística de frases: no detecta inyecciones parafraseadas u ofuscadas. Falsos positivos posibles
+# (p. ej. al revisar un repo que documenta ataques): desactívala con false si lo entiendes.
+injection_gate = true
+
+[resilience]
+breaker_failures = 3
+breaker_reset_s = 30.0
