@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 import sys
+import time
 from pathlib import Path
 
 from .audit import AuditLog, verify_chain
@@ -86,7 +88,11 @@ def main(argv: list[str] | None = None) -> int:
     e.add_argument("--config", required=True)
     e.add_argument("--live", action="store_true", help="use real providers instead of fake_responses.json")
     e.add_argument("--env-file", default=".env", help="load API keys from this file if it exists (default .env)")
-    e.add_argument("--out", default="out-eval", help="where to save the report, risk register and audit log of the run")
+    e.add_argument("--out", default=None,
+                   help="where to save report/risk register/audit (default: out-eval; live runs get a timestamped folder "
+                        "so earlier evidence is never overwritten)")
+    e.add_argument("--repeat", type=int, default=1,
+                   help="run the eval N times (fresh budget each) and print the range and per-defect hit rate")
     a = ap.parse_args(argv)
 
     if getattr(a, "env_file", None):
@@ -123,26 +129,61 @@ def main(argv: list[str] | None = None) -> int:
         gate = {x.strip().upper() for x in a.fail_on.split(",") if x.strip()}
         return 2 if rep.verdict in gate else 0
     suite = Path(a.suite)
-    clients = _clients(cfg, None if a.live else str(suite / "fake_responses.json"))
-    audit = AuditLog(Path(a.out) / "audit.jsonl")
-    rep = run_review(suite / "project", cfg, clients, audit)
-    res = score(rep, suite / "expected.json")
-    write_outputs(rep, Path(a.out))
-    (Path(a.out) / "eval_result.json").write_text(json.dumps(
-        {**res.to_dict(), "live": bool(a.live), "models": {n: f"{t.provider}:{t.model}" for n, t in cfg.tiers.items()},
-         "audit_head": audit.head}, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(json.dumps(res.to_dict(), indent=2, ensure_ascii=False))
-    print(f"\nGuardado en {a.out}/ (review.md, risk_register.json, eval_result.json, audit.jsonl)", file=sys.stderr)
-    if res.unlabeled:
-        print("Hallazgos verificados que NO están en la verdad de referencia (juzga a mano si son reales):", file=sys.stderr)
-        for u in res.unlabeled:
-            print(f"  - {u}", file=sys.stderr)
-    if not res.valid:
-        print("\nINVALID RUN: every lens failed. Numbers above are NOT a measurement of the method.", file=sys.stderr)
-        for line in res.lens_errors:
-            print(f"  - {line}", file=sys.stderr)
-        return 4
-    return 0
+    if a.repeat < 1:
+        print("--repeat must be >= 1", file=sys.stderr)
+        return 1
+    base = Path(a.out) if a.out else Path("out-eval") / (time.strftime("live-%Y%m%d-%H%M%S") if a.live else "")
+    results = []
+    for k in range(1, a.repeat + 1):
+        run_cfg = cfg if k == 1 else load_config(Path(a.config))   # fresh Budget for every repetition
+        out = base if a.repeat == 1 else base / f"run-{k}"
+        audit = AuditLog(out / "audit.jsonl")
+        rep = run_review(suite / "project", run_cfg, _clients(run_cfg, None if a.live else str(suite / "fake_responses.json")),
+                         audit)
+        res = score(rep, suite / "expected.json")
+        write_outputs(rep, out)
+        (out / "eval_result.json").write_text(json.dumps(
+            {**res.to_dict(), "live": bool(a.live), "run": k,
+             "models": {n: f"{t.provider}:{t.model}" for n, t in run_cfg.tiers.items()}, "audit_head": audit.head},
+            indent=2, ensure_ascii=False), encoding="utf-8")
+        results.append(res)
+        if a.repeat > 1:
+            print(f"run {k}/{a.repeat}: valid={res.valid} recall={res.recall:.2f} found={res.found_ids} "
+                  f"missed={res.missed} failed_lenses={res.failed_lenses}", file=sys.stderr)
+    if a.repeat == 1:
+        res = results[0]
+        print(json.dumps(res.to_dict(), indent=2, ensure_ascii=False))
+        print(f"\nGuardado en {base}/ (review.md, risk_register.json, eval_result.json, audit.jsonl)", file=sys.stderr)
+        if res.missed:
+            print(f"Defectos sembrados NO encontrados: {', '.join(res.missed)}", file=sys.stderr)
+        if res.unlabeled:
+            print("Hallazgos verificados que NO están en la verdad de referencia (juzga a mano si son reales):",
+                  file=sys.stderr)
+            for u in res.unlabeled:
+                print(f"  - {u}", file=sys.stderr)
+        if not res.valid:
+            print("\nINVALID RUN: every lens failed. Numbers above are NOT a measurement of the method.", file=sys.stderr)
+            for line in res.lens_errors:
+                print(f"  - {line}", file=sys.stderr)
+            return 4
+        return 0
+    valid = [r for r in results if r.valid]
+    agg = {"runs": a.repeat, "valid_runs": len(valid), "invalid_runs": a.repeat - len(valid),
+           "models": {n: f"{t.provider}:{t.model}" for n, t in cfg.tiers.items()}, "saved_in": str(base)}
+    if valid:
+        rec = [r.recall for r in valid]
+        ids = sorted({d for r in valid for d in (r.found_ids + r.missed)})
+        agg.update({
+            "recall_per_run": [round(x, 2) for x in rec],
+            "recall_min": round(min(rec), 2), "recall_median": round(statistics.median(rec), 2),
+            "recall_max": round(max(rec), 2),
+            "per_defect_hit_rate": {i: f"{sum(i in r.found_ids for r in valid)}/{len(valid)}" for i in ids},
+            "label_precision_per_run": [None if r.label_precision is None else round(r.label_precision, 3) for r in valid],
+            "failed_lenses_per_run": [r.failed_lenses for r in valid],
+            "canary_reported_runs": f"{sum(bool(r.canary_reported) for r in valid)}/{len(valid)}",
+            "note": "Range over repetitions of ONE configuration. Do not pool runs with different models."})
+    print(json.dumps(agg, indent=2, ensure_ascii=False))
+    return 0 if valid else 4
 
 
 if __name__ == "__main__":

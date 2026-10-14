@@ -1,4 +1,4 @@
-.PHONY: models-gemini models-groq models-deepseek models-openai doctor-free doctor-multi doctor-gemini live-gemini live-free test demo demo-inyeccion demo-obediencia-valida audit-check eval diagram
+.PHONY: models-gemini models-groq models-deepseek models-openai doctor-free doctor-multi doctor-gemini live-gemini live-gemini-x3 live-free test demo demo-inyeccion demo-obediencia-valida audit-check eval diagram
 export PYTHONPATH := src
 
 test:
@@ -51,3 +51,5 @@ doctor-gemini:
 	python -m critreview doctor --config config.gemini-only.toml --target evals/seeded/project --probe
 live-gemini:
 	python -m critreview eval --suite evals/seeded --config config.gemini-only.toml --live
+live-gemini-x3:
+	python -m critreview eval --suite evals/seeded --config config.gemini-only.toml --live --repeat 3

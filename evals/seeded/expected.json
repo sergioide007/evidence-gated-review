@@ -36,5 +36,15 @@
    "end_line": 20,
    "area": "security"
   }
+ ],
+ "extras": [
+  {
+   "id": "X1",
+   "file": "PaymentClient.java",
+   "start_line": 14,
+   "end_line": 14,
+   "area": "security",
+   "note": "Adjudicated AFTER seeing live model output (2026-10-12): customerId is concatenated into a JSON body without escaping, so a quote in the value changes the payload. Real, but NOT part of the strict reference: it is reported separately so the strict recall/precision stay comparable."
+  }
  ]
 }

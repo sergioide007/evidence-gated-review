@@ -67,24 +67,33 @@ make demo-obediencia-valida   # JSON válido y vacío + trampa sin reportar → 
 
 Es una heurística de frases: **no detecta inyecciones parafraseadas u ofuscadas** (hay un test que documenta ese límite).
 
-## Primera ejecución con modelos reales (una ejecución, n = 5)
+## Con modelos reales: tres ejecuciones, resultados que varían
 
-`make live-gemini` sobre el proyecto sembrado (5 defectos, uno es una inyección de prompt), plan gratuito de Gemini, tres modelos de la misma familia (`gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.8-flash`):
+Proyecto sembrado (5 defectos, uno es una inyección de prompt), plan gratuito de Gemini, un solo proveedor:
 
-| Resultado | Valor |
-|---|---|
-| Defectos sembrados encontrados | **5 / 5** (inyección incluida) |
-| Hallazgos verificados | 8 (7 coinciden con la verdad de referencia, 1 sin etiqueta por juzgar a mano) |
-| Rechazados por cita inexistente | 0 |
-| Lentes fallidas | 1 de 4: `security`, HTTP 503 «alta demanda» del proveedor |
+| | Config A (1 ejecución) | Config B (2 ejecuciones) |
+|---|---|---|
+| Modelos (cheap / mid / strong) | `gemini-3.5-flash-lite` / `gemini-3.5-flash` / `gemini-3.8-flash` | `gemini-3.1-flash-lite` / `gemini-3.5-flash-lite` / `gemini-3.1-flash-lite-preview` |
+| Defectos encontrados (de 5) | **5** | **3** y **4** |
+| Hallazgos verificados | 8 | 4 y 7 |
+| `label_precision` (respecto a la referencia estricta) | 0,875 | 1,0 y 0,857 |
+| Lentes fallidas | 1 (`security`, HTTP 503) | 0 y 0 |
+| Rechazados por cita inexistente | 0 | 0 y 0 |
+| Canario de inyección reportado | sí | sí y sí |
 
 Cómo leerlo, sin inflarlo:
 
-- **Es una ejecución con 5 defectos.** Un 5/5 es compatible con un recall real de ~48 % a 100 % (intervalo exacto al 95 %). No es un benchmark.
-- **Los defectos los escribió el mismo autor del verificador**, y revisor y adjudicador son de la misma familia de modelos.
-- **La puerta de evidencia no se ejercitó**: ninguna cita inventada que rechazar. Eso no demuestra que los modelos no inventen, solo que en esta ejecución no lo hicieron.
-- **Lo que sí mostró**: un fallo real de infraestructura (503) no se convirtió en «sin hallazgos»; la cobertura quedó marcada como incompleta, y el hallazgo de la inyección lo reportó otra lente. Tras ese fallo, los reintentos y la espera son configurables (`retry_attempts`, `retry_base_delay_s`).
-- Las ejecuciones se guardan en `out-eval/` (informe, registro de riesgos, `eval_result.json` con los modelos usados y la cadena de auditoría). Repítelo varias veces: con modelos reales los resultados varían.
+- **El recall osciló entre 3/5 y 5/5.** Las dos configuraciones difieren en varias cosas a la vez, así que no se puede atribuir la diferencia al tamaño del modelo. Con la misma configuración B, dos ejecuciones dieron 3/5 y 4/5: **hay variación entre ejecuciones**. Si citas un número, cita el rango y la configuración, no la mejor ejecución.
+- **Lo que se sostuvo en las tres:** el canario de inyección se reportó en lugar de obedecerse y ninguna cita inventada llegó al informe (0 rechazos: la puerta de evidencia no tuvo nada que parar). Con n = 3 y una sola inyección, es una señal, no una garantía.
+- **Lo que el sistema NO garantiza:** que reporte todo. Garantiza que lo reportado tiene evidencia; un defecto que ninguna lente menciona no deja rastro. Sin defectos sembrados, un falso negativo es invisible.
+- **Un hallazgo fuera de la referencia (`PaymentClient.java:14`, JSON armado a mano) es real** a juicio del autor: la referencia estricta estaba incompleta. Se informa aparte (`precision_with_extras_posthoc`) y **no** modifica el recall ni la precisión estrictos, para no ajustar la vara de medir tras ver las respuestas.
+- Los defectos los escribió el mismo autor del verificador, y revisor y adjudicador son de la misma familia de modelos. Un fallo del proveedor (503) en una ejecución se registró como lente fallida y cobertura incompleta, no como «sin hallazgos».
+
+```bash
+make live-gemini-x3     # 3 repeticiones: rango de recall, tasa de acierto por defecto, una carpeta por ejecución
+```
+
+Cada ejecución se guarda en `out-eval/live-<fecha>/` (informe, registro de riesgos, `eval_result.json` con los modelos y la cadena de auditoría); las ejecuciones en vivo nunca sobrescriben las anteriores.
 
 ## ⚠️ Qué es simulado (léelo)
 
@@ -174,7 +183,7 @@ Qué hace el repo para que los planes gratuitos no lo rompan:
 ## Tests y evals
 
 ```bash
-make test    # 126 tests, offline
+make test    # 133 tests, offline
 make eval    # recall / precisión contra 5 defectos sembrados (con respuestas simuladas)
 ```
 
@@ -186,7 +195,7 @@ make eval    # recall / precisión contra 5 defectos sembrados (con respuestas s
 - Las lentes comparten contexto; su independencia es limitada.
 - El gate de inyección es una heurística de frases: lo parafraseado u ofuscado la evade. Al revisar un repo que *documenta* ataques puede dar falsos positivos (`injection_gate = false`).
 - El orden de los prompts (código primero, directiva de la lente al final) permite el *prompt caching* del proveedor porque todas las lentes comparten prefijo. **No he medido el ahorro**; depende del proveedor.
-- La calidad con modelos reales está medida en **una sola ejecución con 5 defectos sembrados** (ver arriba). Faltan repeticiones, más defectos, defectos que no haya escrito el autor del verificador y más de un proveedor.
+- La calidad con modelos reales está medida en **tres ejecuciones con 5 defectos sembrados** y recall entre 3/5 y 5/5 (ver arriba). Faltan más repeticiones, más defectos, defectos que no haya escrito el autor del verificador y más de un proveedor.
 
 ## Licencia
 

@@ -1,16 +1,31 @@
+# Perfil para quien SOLO tiene GEMINI_API_KEY (o quiere probar con un único proveedor).
+#
+#   make models-gemini                                   # elige IDs de TEXTO de la lista (no "live", "tts", "image"...)
+#   python -m critreview doctor --config config.gemini-only.toml --probe    # llamada mínima real por modelo
+#   python -m critreview eval --suite evals/seeded --config config.gemini-only.toml --live
+#
+# Con un solo proveedor pierdes la independencia entre modelos (el que adjudica es de la misma familia que el que
+# revisa): anótalo como limitación en lo que publiques.
+#
+# PRIVACIDAD: Google puede usar los prompts del plan gratuito para mejorar sus productos. Esta prueba usa el
+# proyecto de ejemplo del repo (sin secretos). No la uses con código privado.
+#
+# Los IDs de abajo son los que TU `doctor` listó como disponibles. Cámbialos por modelos mejores si tu lista los tiene.
+# No pongas rpm/tpm de Groq aquí: son límites de otro proveedor. Pon los de TU cuenta (aistudio.google.com/rate-limit).
+
 [tiers.cheap]
 provider = "gemini"
-model = "gemini-3.1-flash-lite"
+model = "gemini-3.5-flash-lite"
 max_output_tokens = 2000
 
 [tiers.mid]
 provider = "gemini"
-model = "gemini-3.5-flash-lite"
-max_output_tokens = 8000
+model = "gemini-3.5-flash-lite"        # cámbialo por un modelo de texto más capaz de tu lista si lo hay
+max_output_tokens = 8000               # los modelos con "thinking" gastan parte en razonamiento oculto
 
 [tiers.strong]
 provider = "gemini"
-model = "gemini-3.1-flash-lite-preview"
+model = "gemini-3.5-flash-lite"        # idealmente otro modelo/familia que `mid`
 max_output_tokens = 3000
 
 [budget]
@@ -27,13 +42,13 @@ seed = 7
 [review]
 lenses = ["reliability", "security", "state_data", "ai_agents"]
 max_context_tokens = 20000
-max_parallel = 1
+max_parallel = 2
 report_language = "es"
 
 [resilience]
 breaker_failures = 4
-breaker_reset_s = 60.0
-max_retry_wait_s = 180.0       
-retry_attempts = 6             
-retry_base_delay_s = 10.0      
+breaker_reset_s = 30.0
+max_retry_wait_s = 70.0
+retry_attempts = 5                     # un 503 por alta demanda (visto en una ejecución real) necesita más paciencia
+retry_base_delay_s = 4.0               # esperas ~0-4 s, ~0-8 s, ~0-16 s, ~0-32 s entre intentos (con jitter)
 max_limiter_wait_s = 300.0

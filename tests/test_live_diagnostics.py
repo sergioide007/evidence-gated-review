@@ -179,3 +179,95 @@ class RetryKnobsAndEvalOutputs(unittest.TestCase):
             r.errors = ['TransientError: HTTP 503 [{\n  "error": {\n    "code": 503\n  }\n}\n]']
         res = score(rep, SUITE / "expected.json")
         self.assertTrue(all("\n" not in e for e in res.lens_errors))
+
+
+class RepeatsMissesAndPosthocExtras(unittest.TestCase):
+    def demo_report(self):
+        c = cfg()
+        fc = FakeClient(json.loads((SUITE / "fake_responses.json").read_text(encoding="utf-8")))
+        return run_review(SUITE / "project", c, {n: fc for n in c.tiers})
+
+    def test_demo_run_has_no_misses_and_no_extras(self):
+        res = score(self.demo_report(), SUITE / "expected.json")
+        self.assertEqual((res.missed, res.extras_matched), ([], 0))
+        self.assertEqual(res.found_ids, ["D1", "D2", "D3", "D4", "D5"])
+
+    def test_misses_are_named(self):
+        c = cfg()
+        fc = FakeClient({k: '{"findings": []}' for k in ("[[LENS:reliability]]", "[[LENS:security]]",
+                                                          "[[LENS:state_data]]", "[[LENS:ai_agents]]")})
+        res = score(run_review(SUITE / "project", c, {n: fc for n in c.tiers}), SUITE / "expected.json")
+        self.assertEqual(res.missed, ["D1", "D2", "D3", "D4", "D5"])
+
+    def test_posthoc_extra_is_reported_apart_and_never_changes_the_strict_numbers(self):
+        from critreview.models import Evidence, Finding
+        rep = self.demo_report()
+        strict_before = score(rep, SUITE / "expected.json")
+        f = Finding("security:SEC-02", "security", "JSON armado a mano", [Evidence("PaymentClient.java", 14, 14,
+                    "BodyPublishers.ofString")], "m", "t", "medium", "d", "medium", "medium", "r", "c")
+        f.verified, f.severity = True, "medium"
+        rep.findings.append(f)
+        after = score(rep, SUITE / "expected.json")
+        self.assertEqual(after.matched_findings, strict_before.matched_findings)       # strict unchanged
+        self.assertEqual(after.recall, strict_before.recall)
+        self.assertLess(after.label_precision, 1.0)
+        self.assertEqual(after.extras_matched, 1)
+        self.assertGreater(after.precision_with_extras, after.label_precision)
+        self.assertTrue(any("X1 adjudicado a posteriori" in u for u in after.unlabeled))
+        self.assertIn("precision_with_extras_posthoc", after.to_dict())
+
+    def run_cli(self, args):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cli_main(args)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_repeat_gives_range_per_defect_rates_and_one_folder_per_run(self):
+        with tempfile.TemporaryDirectory() as d:
+            code, out, err = self.run_cli(["eval", "--suite", str(SUITE), "--config", str(ROOT / "config.example.toml"),
+                                           "--repeat", "3", "--out", d])
+            agg = json.loads(out)
+            self.assertEqual(code, 0)
+            self.assertEqual((agg["runs"], agg["valid_runs"]), (3, 3))
+            self.assertEqual((agg["recall_min"], agg["recall_median"], agg["recall_max"]), (1.0, 1.0, 1.0))
+            self.assertEqual(set(agg["per_defect_hit_rate"].values()), {"3/3"})
+            self.assertIn("Do not pool", agg["note"])
+            calls = []
+            for k in (1, 2, 3):
+                rr = json.loads((Path(d) / f"run-{k}" / "risk_register.json").read_text(encoding="utf-8"))
+                calls.append(rr["budget"]["calls"] if "calls" in rr["budget"] else json.dumps(rr["budget"]))
+            self.assertEqual(len(set(map(str, calls))), 1)    # fresh budget each run: no accumulation
+
+    def test_repeat_with_only_invalid_runs_exits_4(self):
+        with tempfile.TemporaryDirectory() as d:
+            suite = Path(d) / "suite"
+            shutil.copytree(SUITE, suite)
+            (suite / "fake_responses.json").write_text(json.dumps({"[[LENS:": "not json"}), encoding="utf-8")
+            code, out, _ = self.run_cli(["eval", "--suite", str(suite), "--config", str(ROOT / "config.example.toml"),
+                                         "--repeat", "2", "--out", str(Path(d) / "o")])
+        self.assertEqual(code, 4)
+        self.assertEqual(json.loads(out)["valid_runs"], 0)
+
+    def test_live_runs_get_a_timestamped_folder_so_evidence_is_never_overwritten(self):
+        import os
+        resp = json.loads((SUITE / "fake_responses.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as d:
+            cwd = os.getcwd()
+            os.chdir(d)
+            try:
+                c = cfg()
+                with mock.patch("critreview.cli._clients", return_value={n: FakeClient(resp) for n in c.tiers}):
+                    for _ in range(1):
+                        self.run_cli(["eval", "--suite", str(SUITE), "--config", str(ROOT / "config.example.toml"),
+                                      "--live"])
+                made = [p.name for p in (Path(d) / "out-eval").iterdir()]
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(len(made), 1)
+        self.assertTrue(made[0].startswith("live-"))
+
+    def test_cli_names_missed_defects(self):
+        code, out, err = self.run_cli(["eval", "--suite", str(SUITE), "--config", str(ROOT / "config.example.toml"),
+                                       "--out", tempfile.mkdtemp()])
+        self.assertEqual(code, 0)
+        self.assertNotIn("NO encontrados", err)
